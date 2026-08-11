@@ -53,9 +53,13 @@ drop policy if exists "allowed can read memories" on memories;
 create policy "allowed can read memories" on memories for select
   using (is_allowed_user());
 
+-- author_email defaults to auth.email(), but a default only applies when the
+-- client omits the column — so the policy must also pin it, or one allowed user
+-- could insert rows attributed to the other (and, since the delete policy keys
+-- off author_email, rows neither of them could delete).
 drop policy if exists "allowed can insert memories" on memories;
 create policy "allowed can insert memories" on memories for insert
-  with check (is_allowed_user());
+  with check (is_allowed_user() and author_email = auth.email());
 
 drop policy if exists "authors can delete their memories" on memories;
 create policy "authors can delete their memories" on memories for delete
@@ -67,11 +71,26 @@ create policy "allowed can read notes" on notes for select
 
 drop policy if exists "allowed can insert notes" on notes;
 create policy "allowed can insert notes" on notes for insert
-  with check (is_allowed_user());
+  with check (is_allowed_user() and author_email = auth.email());
 
 -- 6. Realtime: let both partners see new memories/notes live.
-alter publication supabase_realtime add table memories;
-alter publication supabase_realtime add table notes;
+-- Guarded so re-running this file doesn't abort here ("already member of
+-- publication") and skip the storage setup below.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['memories', 'notes'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
 
 -- 7. Private storage bucket for photos.
 insert into storage.buckets (id, name, public)
@@ -85,3 +104,10 @@ create policy "allowed can read photos" on storage.objects for select
 drop policy if exists "allowed can upload photos" on storage.objects;
 create policy "allowed can upload photos" on storage.objects for insert
   with check (bucket_id = 'memory-photos' and is_allowed_user());
+
+-- Without this, deleting a memory would leave its photo in the bucket forever
+-- with no way to remove it through the anon key. The app deletes the object as
+-- part of deleteMemory(), and as part of cleaning up a failed save.
+drop policy if exists "allowed can delete photos" on storage.objects;
+create policy "allowed can delete photos" on storage.objects for delete
+  using (bucket_id = 'memory-photos' and is_allowed_user());

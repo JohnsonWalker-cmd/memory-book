@@ -1,12 +1,22 @@
 (() => {
+  function fatal(message) {
+    const el = document.getElementById('auth-message');
+    el.hidden = false;
+    el.textContent = message;
+  }
+
   if (!window.supabase) {
-    document.getElementById('auth-message').hidden = false;
-    document.getElementById('auth-message').textContent =
-      "Couldn't load the Supabase library. Check your internet connection and reload.";
+    fatal("Couldn't load the Supabase library. Check your internet connection and reload.");
     return;
   }
 
-  const { supabaseUrl, supabaseAnonKey } = window.MEMORY_BOOK_CONFIG;
+  const config = window.MEMORY_BOOK_CONFIG;
+  if (!config || !config.supabaseUrl || !config.supabaseAnonKey) {
+    fatal('Missing configuration — put your Supabase URL and anon key in config.js (see README step 2).');
+    return;
+  }
+
+  const { supabaseUrl, supabaseAnonKey } = config;
   const sb = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
   const PHOTO_BUCKET = 'memory-photos';
@@ -67,6 +77,20 @@
   function showAuth() {
     authScreen.hidden = false;
     appScreen.hidden = true;
+
+    // Drop the previous account's data: signed photo URLs stay valid for an
+    // hour, so leaving the cards up would show them to whoever signs in next
+    // on a shared device.
+    unsubscribeRealtime();
+    memoriesCache = [];
+    currentMemoryId = null;
+    memoriesList.replaceChildren();
+    notesList.replaceChildren();
+    detailContent.replaceChildren();
+    detailModal.hidden = true;
+    addMemoryModal.hidden = true;
+    emptyState.hidden = true;
+    userEmailEl.textContent = '';
   }
 
   function showApp() {
@@ -80,7 +104,7 @@
   // --- Add memory modal ---
   addMemoryBtn.addEventListener('click', () => {
     addMemoryForm.reset();
-    document.getElementById('memory-date').valueAsDate = new Date();
+    document.getElementById('memory-date').value = todayLocal();
     addMemoryModal.hidden = false;
   });
 
@@ -110,14 +134,16 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving...';
 
+    let uploadedPath = null;
     try {
       let image_path = null;
       if (file) {
-        image_path = `${crypto.randomUUID()}-${file.name}`;
+        image_path = storageKeyFor(file);
         const { error: uploadError } = await sb.storage
           .from(PHOTO_BUCKET)
           .upload(image_path, file);
         if (uploadError) throw uploadError;
+        uploadedPath = image_path;
       }
 
       const { error: insertError } = await sb
@@ -125,9 +151,15 @@
         .insert({ title, memory_date, description, image_path });
       if (insertError) throw insertError;
 
+      uploadedPath = null;
       addMemoryModal.hidden = true;
       loadMemories();
     } catch (err) {
+      // The photo uploaded but the row didn't land — drop the object rather
+      // than leaving it in the bucket with nothing referencing it.
+      if (uploadedPath) {
+        await sb.storage.from(PHOTO_BUCKET).remove([uploadedPath]).catch(() => {});
+      }
       alert(`Couldn't save memory: ${err.message}`);
     } finally {
       submitBtn.disabled = false;
@@ -136,7 +168,14 @@
   });
 
   // --- Load & render memories ---
+  // Concurrent runs are common (a write plus the realtime event it triggers).
+  // Without a token the slowest query wins the DOM regardless of age, so a
+  // stale list can overwrite a fresh one — e.g. a just-deleted card reappearing.
+  let loadMemoriesToken = 0;
+
   async function loadMemories() {
+    const token = ++loadMemoriesToken;
+
     const { data, error } = await sb
       .from('memories')
       .select('*')
@@ -146,11 +185,13 @@
       console.error(error);
       return;
     }
+    if (token !== loadMemoriesToken) return;
+
+    const cards = await Promise.all(data.map(renderMemoryCard));
+    if (token !== loadMemoriesToken) return;
 
     memoriesCache = data;
     emptyState.hidden = data.length > 0;
-
-    const cards = await Promise.all(data.map(renderMemoryCard));
     memoriesList.replaceChildren(...cards);
   }
 
@@ -190,6 +231,11 @@
     if (!memory) return;
 
     const imgUrl = await getSignedUrl(memory.image_path);
+    // Another card may have been opened while the signed URL was in flight;
+    // writing now would pair this memory's content with the other one's notes
+    // and delete button.
+    if (currentMemoryId !== memoryId) return;
+
     detailContent.innerHTML = `
       <h2>${escapeHtml(memory.title)}</h2>
       <div class="detail-meta">${formatDate(memory.memory_date)} · ${escapeHtml(memory.author_email)}</div>
@@ -216,12 +262,24 @@
 
   async function deleteMemory(memoryId) {
     if (!confirm('Delete this memory and its notes?')) return;
+
+    const imagePath = memoriesCache.find((m) => m.id === memoryId)?.image_path;
+
     const { error } = await sb.from('memories').delete().eq('id', memoryId);
     if (error) {
       alert(`Couldn't delete: ${error.message}`);
       return;
     }
+
+    // Row is gone, so the object is unreachable from the UI either way — a
+    // failure here only wastes quota, and shouldn't block the delete.
+    if (imagePath) {
+      const { error: removeError } = await sb.storage.from(PHOTO_BUCKET).remove([imagePath]);
+      if (removeError) console.error(removeError);
+    }
+
     detailModal.hidden = true;
+    currentMemoryId = null;
     loadMemories();
   }
 
@@ -267,12 +325,11 @@
   });
 
   // --- Realtime ---
-  let realtimeSubscribed = false;
+  let realtimeChannel = null;
   function subscribeRealtime() {
-    if (realtimeSubscribed) return;
-    realtimeSubscribed = true;
+    if (realtimeChannel) return;
 
-    sb.channel('memory-book-changes')
+    realtimeChannel = sb.channel('memory-book-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' }, () => {
         loadMemories();
       })
@@ -285,7 +342,32 @@
       .subscribe();
   }
 
+  // Tear the channel down on sign-out so the next sign-in gets a fresh
+  // subscription rather than relying on the old one surviving the auth change.
+  function unsubscribeRealtime() {
+    if (!realtimeChannel) return;
+    sb.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
   // --- Helpers ---
+  // Today in the user's own timezone. (input.valueAsDate reads/writes UTC, so
+  // it pre-fills tomorrow for anyone west of UTC during their evening.)
+  function todayLocal() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  // Storage keys go in a URL path, so keep the random name and a plain
+  // extension rather than passing through a phone/messenger filename that may
+  // contain '#', '?', '/' or control characters.
+  function storageKeyFor(file) {
+    const match = /\.([A-Za-z0-9]{1,8})$/.exec(file.name || '');
+    const ext = match ? `.${match[1].toLowerCase()}` : '';
+    return `${crypto.randomUUID()}${ext}`;
+  }
+
   function formatDate(dateStr) {
     if (!dateStr) return '';
     return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
