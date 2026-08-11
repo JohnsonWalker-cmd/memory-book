@@ -121,7 +121,16 @@ them would write private data to disk *and* serve dead image links. Don't invert
 **Bump `VERSION` in `sw.js` whenever a shell file changes.** The cache name derives from it, and
 `activate` deletes every `memory-book-*` cache that isn't the current one. Adding a file to the
 shell also means adding it to `SHELL_ASSETS` — and every entry must resolve, since `cache.addAll`
-rejects the entire install if one 404s.
+rejects the entire install if one 404s. Without a bump the worker is byte-identical, so no update
+is detected: the HTML still refreshes (network-first) but CSS/JS arrive a launch late via
+stale-while-revalidate, and the two are briefly mismatched.
+
+The update prompt has two triggers, and both are needed. `updatefound` catches a worker installing
+right now; the `registration.waiting` check at startup catches one that finished installing during
+an earlier visit, where `updatefound` has already fired and will never fire again. Dropping the
+latter silently loses the prompt. Because the browser only looks for a new `sw.js` on navigation —
+and an installed PWA can go days without one — `registration.update()` is also called on
+foreground/online/focus, throttled to once a minute.
 
 Registration lives in its own IIFE at the bottom of `app.js`, outside the main one, because the main
 IIFE returns early when Supabase or `config.js` is missing — the shell should still register and

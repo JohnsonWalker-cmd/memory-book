@@ -460,18 +460,56 @@
 
     // An update is only worth announcing if a worker is already in control —
     // otherwise this is the first install and there is nothing to replace.
+    function promptForUpdate() {
+      if (!navigator.serviceWorker.controller) return;
+      updateBanner.hidden = false;
+    }
+
+    // A worker that finished installing during an earlier visit is already
+    // parked in `waiting`, and `updatefound` has long since fired — so without
+    // this check the prompt would be silently missed and the update would sit
+    // there until the browser eventually discarded the old worker.
+    if (registration.waiting) promptForUpdate();
+
     registration.addEventListener('updatefound', () => {
       const incoming = registration.installing;
-      if (!incoming || !navigator.serviceWorker.controller) return;
+      if (!incoming) return;
 
       incoming.addEventListener('statechange', () => {
-        if (incoming.state === 'installed') updateBanner.hidden = false;
+        if (incoming.state === 'installed') promptForUpdate();
       });
     });
 
+    // The browser only looks for a new sw.js on navigation. An installed PWA
+    // can stay alive on a phone for days without one, so ask explicitly when
+    // the app comes back to the foreground or regains a connection —
+    // throttled, since visibilitychange fires on every app switch.
+    const UPDATE_CHECK_INTERVAL = 60 * 1000;
+    let lastUpdateCheck = Date.now();
+
+    function checkForUpdate() {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (Date.now() - lastUpdateCheck < UPDATE_CHECK_INTERVAL) return;
+      lastUpdateCheck = Date.now();
+      registration.update().catch(() => {
+        // Offline or the server is unreachable — nothing to do, we'll retry
+        // on the next foreground.
+      });
+    }
+
+    document.addEventListener('visibilitychange', checkForUpdate);
+    window.addEventListener('online', checkForUpdate);
+    window.addEventListener('focus', checkForUpdate);
+
     reloadBtn.addEventListener('click', () => {
       reloadBtn.disabled = true;
-      registration.waiting?.postMessage('SKIP_WAITING');
+      if (registration.waiting) {
+        registration.waiting.postMessage('SKIP_WAITING');
+      } else {
+        // Nothing waiting (rare: the worker was replaced between prompt and
+        // tap). A plain reload still lands the user on the current version.
+        window.location.reload();
+      }
     });
 
     // Reload once the replacement worker has taken over, so the page and the

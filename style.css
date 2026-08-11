@@ -26,6 +26,7 @@
 html {
   /* Stop iOS from bumping text size when a phone is rotated to landscape. */
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
