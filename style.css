@@ -68,6 +68,10 @@ h1, h2, h3 {
   font-size: 14px;
 }
 
+#auth-form button[type="submit"] {
+  margin-top: 16px;
+}
+
 /* Form basics */
 form {
   display: flex;
@@ -109,7 +113,6 @@ button {
 .primary-btn {
   background: var(--accent);
   color: #fff;
-  margin-top: 16px;
   transition: background 0.2s ease;
 }
 
@@ -156,6 +159,10 @@ button {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px 60px;
+}
+
+#add-memory-btn {
+  margin-top: 16px;
 }
 
 /* Memories grid */
