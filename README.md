@@ -36,12 +36,29 @@ The anon key is safe to commit/expose — it only grants what the Row Level
 Security policies in `schema.sql` allow (i.e. nothing, unless your email is
 in `allowed_emails`).
 
-## 3. Set the auth redirect URL
+## 3. Set up Google sign-in
 
-Once you know where you'll host the site (see below), go to **Authentication
-> URL Configuration** in Supabase and set the **Site URL** (and add a
-**Redirect URL**) to that address, e.g. `https://yourname.github.io/memory-book/`.
-This is what the magic-link email will redirect back to.
+Sign-in uses "Continue with Google" rather than emailed links, so there's no
+email-sending rate limit to worry about.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create (or
+   pick) a project, then go to **APIs & Services > OAuth consent screen**.
+   Choose **External**, fill in the app name and your support email, and add
+   both of your Google email addresses under **Test users** (this keeps the
+   app in "Testing" mode, which is fine for a 2-person app — no Google review
+   needed).
+2. Go to **APIs & Services > Credentials > Create Credentials > OAuth client
+   ID**, application type **Web application**. Under **Authorized redirect
+   URIs**, add your Supabase callback URL:
+   `https://xxxxx.supabase.co/auth/v1/callback` (use your own project ref).
+3. Copy the generated **Client ID** and **Client secret**.
+4. In Supabase, go to **Authentication > Providers > Google**, enable it, and
+   paste in the Client ID and secret. Save.
+5. Once you know where you'll host the site (see below), go to
+   **Authentication > URL Configuration** in Supabase and set the **Site
+   URL** (and add a **Redirect URL**) to that address, e.g.
+   `https://yourname.github.io/memory-book/`. This is where Google will send
+   you back after signing in.
 
 ## 4. Deploy
 
@@ -56,9 +73,10 @@ it at the repo root.)
 
 ## 5. Use it
 
-Open the site, enter your email, and click the magic link sent to your
-inbox. Once signed in you can add memories and notes — your girlfriend does
-the same from her own email. Both of you will see updates live.
+Open the site and click "Continue with Google," then sign in with the Google
+account whose email is in `allowed_emails`. Once signed in you can add
+memories and notes — your girlfriend does the same from her own Google
+account. Both of you will see updates live.
 
 ## Notes on privacy
 
@@ -67,6 +85,7 @@ the same from her own email. Both of you will see updates live.
   the anon key itself is public.
 - Photos live in a **private** storage bucket; the app links to them via
   short-lived signed URLs, not public links.
-- Anyone can technically request a magic-link sign-in for an email not on the
-  list, but Supabase will just create an inert account for them — they still
-  won't be able to read or write any memories or notes.
+- Anyone can technically sign in with Google using an email not on the list
+  (as long as they're an added test user, since the OAuth app is in Testing
+  mode), but they still won't be able to read or write any memories or
+  notes.
