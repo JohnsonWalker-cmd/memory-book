@@ -149,12 +149,9 @@
 
     memoriesCache = data;
     emptyState.hidden = data.length > 0;
-    memoriesList.innerHTML = '';
 
-    for (const memory of data) {
-      const card = await renderMemoryCard(memory);
-      memoriesList.appendChild(card);
-    }
+    const cards = await Promise.all(data.map(renderMemoryCard));
+    memoriesList.replaceChildren(...cards);
   }
 
   async function getSignedUrl(path) {
