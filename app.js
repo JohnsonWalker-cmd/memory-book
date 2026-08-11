@@ -14,8 +14,7 @@
   // --- DOM refs ---
   const authScreen = document.getElementById('auth-screen');
   const appScreen = document.getElementById('app-screen');
-  const authForm = document.getElementById('auth-form');
-  const emailInput = document.getElementById('email-input');
+  const googleSignInBtn = document.getElementById('google-signin-btn');
   const authMessage = document.getElementById('auth-message');
   const userEmailEl = document.getElementById('user-email');
   const signOutBtn = document.getElementById('sign-out-btn');
@@ -39,18 +38,16 @@
   let memoriesCache = [];
 
   // --- Auth ---
-  authForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = emailInput.value.trim();
+  googleSignInBtn.addEventListener('click', async () => {
     authMessage.hidden = true;
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.href },
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href },
     });
-    authMessage.hidden = false;
-    authMessage.textContent = error
-      ? `Error: ${error.message}`
-      : `Check ${email} for a magic link!`;
+    if (error) {
+      authMessage.hidden = false;
+      authMessage.textContent = `Error: ${error.message}`;
+    }
   });
 
   signOutBtn.addEventListener('click', async () => {
