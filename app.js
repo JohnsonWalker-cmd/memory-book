@@ -393,3 +393,60 @@
   }
 })();
 
+// --- PWA: install, updates, offline status ---
+// Deliberately outside the main IIFE: that one returns early if the Supabase
+// library or config.js is missing, and the shell should still register its
+// worker and report connectivity in that state.
+(() => {
+  const offlineBanner = document.getElementById('offline-banner');
+  const updateBanner = document.getElementById('update-banner');
+  const reloadBtn = document.getElementById('reload-btn');
+
+  function syncOnlineStatus() {
+    offlineBanner.hidden = navigator.onLine;
+  }
+
+  window.addEventListener('online', syncOnlineStatus);
+  window.addEventListener('offline', syncOnlineStatus);
+  syncOnlineStatus();
+
+  if (!('serviceWorker' in navigator)) return;
+
+  window.addEventListener('load', async () => {
+    let registration;
+    try {
+      // Relative path so the scope follows the deploy directory (project
+      // pages live under /<repo-name>/, not the domain root).
+      registration = await navigator.serviceWorker.register('./sw.js');
+    } catch (err) {
+      console.error('Service worker registration failed:', err);
+      return;
+    }
+
+    // An update is only worth announcing if a worker is already in control —
+    // otherwise this is the first install and there is nothing to replace.
+    registration.addEventListener('updatefound', () => {
+      const incoming = registration.installing;
+      if (!incoming || !navigator.serviceWorker.controller) return;
+
+      incoming.addEventListener('statechange', () => {
+        if (incoming.state === 'installed') updateBanner.hidden = false;
+      });
+    });
+
+    reloadBtn.addEventListener('click', () => {
+      reloadBtn.disabled = true;
+      registration.waiting?.postMessage('SKIP_WAITING');
+    });
+
+    // Reload once the replacement worker has taken over, so the page and the
+    // worker never disagree about which shell version is live.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+  });
+})();
+

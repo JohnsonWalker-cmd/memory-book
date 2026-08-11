@@ -22,6 +22,9 @@ body {
   background-color: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Keep content clear of the notch/home indicator when installed. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 h1, h2, h3 {
@@ -32,6 +35,46 @@ h1, h2, h3 {
 /* Screens */
 .screen {
   min-height: 100vh;
+}
+
+/* Status banners (offline / update ready) */
+.status-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+
+.status-banner.offline {
+  background: var(--text);
+  color: #fff;
+}
+
+.status-banner.update {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.banner-btn {
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.banner-btn:hover {
+  background: var(--accent-dark);
 }
 
 /* Auth screen */

@@ -78,6 +78,32 @@ account whose email is in `allowed_emails`. Once signed in you can add
 memories and notes — your girlfriend does the same from her own Google
 account. Both of you will see updates live.
 
+## 6. Install it on your phone
+
+The app is a Progressive Web App, so both of you can add it to your home screen
+and open it like a normal app — full screen, its own icon, no browser chrome.
+
+- **iPhone (Safari):** open the site, tap **Share**, then **Add to Home Screen**.
+- **Android (Chrome):** open the site and tap the **Install app** prompt, or
+  **⋮ > Add to Home screen**.
+- **Desktop (Chrome/Edge):** click the install icon in the address bar.
+
+This needs HTTPS, which GitHub Pages gives you automatically. (`localhost` also
+counts as secure, so installing works when testing locally too.)
+
+What works offline: the app itself — it opens instantly and shows the screen
+rather than a browser error. Your memories, photos and notes are **not**
+available offline; they live in Supabase and need a connection, so you'll see an
+"You're offline" banner until you're back. Photos are deliberately never cached
+on disk, since their links are private and time-limited.
+
+When you push a change, open apps pick it up on next launch and show a small
+"A new version is ready" prompt. If you change any of the shell files, bump
+`VERSION` in [`sw.js`](sw.js) so old cached copies are cleared.
+
+The icons are generated, not hand-drawn — run `python3 tools/make-icons.py`
+after changing the colours in `style.css` to regenerate them.
+
 ## Notes on privacy
 
 - Only the emails listed in `allowed_emails` can sign in and see any data —

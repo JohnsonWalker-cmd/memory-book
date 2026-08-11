@@ -4,9 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Our Memory Book</title>
+  <meta name="description" content="A shared place to keep our photos, dates and notes.">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#c0392b">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+
+  <!-- iOS doesn't read the manifest for these. -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Memory Book">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Connection / update status (PWA) -->
+  <div id="offline-banner" class="status-banner offline" hidden>
+    You're offline — memories will load again once you're back.
+  </div>
+
+  <div id="update-banner" class="status-banner update" hidden>
+    <span>A new version is ready.</span>
+    <button id="reload-btn" class="banner-btn">Reload</button>
+  </div>
 
   <!-- Sign-in screen -->
   <section id="auth-screen" class="screen">
