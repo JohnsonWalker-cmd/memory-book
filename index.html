@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Memory Book</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Sign-in screen -->
+  <section id="auth-screen" class="screen">
+    <div class="auth-card">
+      <h1>Our Memory Book 💌</h1>
+      <p class="subtitle">A little place to keep the two of us.</p>
+
+      <form id="auth-form">
+        <label for="email-input">Your email</label>
+        <input id="email-input" type="email" placeholder="you@example.com" required>
+        <button type="submit" class="primary-btn">Send me a magic link</button>
+      </form>
+
+      <p id="auth-message" class="auth-message" hidden></p>
+    </div>
+  </section>
+
+  <!-- Main app -->
+  <section id="app-screen" class="screen" hidden>
+    <header class="app-header">
+      <h1>Our Memory Book 💌</h1>
+      <div class="header-right">
+        <span id="user-email"></span>
+        <button id="sign-out-btn" class="ghost-btn">Sign out</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <button id="add-memory-btn" class="primary-btn">+ Add a memory</button>
+
+      <div id="memories-list" class="memories-list"></div>
+      <p id="empty-state" class="empty-state" hidden>No memories yet — add your first one!</p>
+    </main>
+  </section>
+
+  <!-- Add memory modal -->
+  <div id="add-memory-modal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <h2>New memory</h2>
+      <form id="add-memory-form">
+        <label for="memory-title">Title</label>
+        <input id="memory-title" type="text" required placeholder="Our first hike">
+
+        <label for="memory-date">Date</label>
+        <input id="memory-date" type="date" required>
+
+        <label for="memory-description">Description</label>
+        <textarea id="memory-description" rows="3" placeholder="What happened?"></textarea>
+
+        <label for="memory-photo">Photo (optional)</label>
+        <input id="memory-photo" type="file" accept="image/*">
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-memory-btn" class="ghost-btn">Cancel</button>
+          <button type="submit" class="primary-btn">Save memory</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Memory detail / notes modal -->
+  <div id="detail-modal" class="modal-backdrop" hidden>
+    <div class="modal detail-modal">
+      <button id="close-detail-btn" class="close-btn" aria-label="Close">&times;</button>
+      <div id="detail-content"></div>
+
+      <h3>Notes</h3>
+      <div id="notes-list" class="notes-list"></div>
+      <form id="add-note-form">
+        <input id="note-input" type="text" placeholder="Add a note..." required>
+        <button type="submit" class="primary-btn">Add</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
