@@ -78,6 +78,35 @@ reload when the changed row belongs to the currently open memory (`currentMemory
 Auth state is driven entirely by `sb.auth.onAuthStateChange` → `showApp()` / `showAuth()`; there is
 no separate session-restore path.
 
+### Responsive layout
+
+Sizing is fluid first (`clamp()` for gutters, headings, card gaps) with breakpoints reserved for
+actual layout changes: 600px (phone), 601–1024px (tablet), 1200px+ (wider content column), plus a
+short-landscape query for modal heights. Grid tracks use `minmax(min(260px, 100%), 1fr)` — the
+`min()` is load-bearing, since a bare 260px track overflows viewports narrower than that.
+
+Things that will bite if changed casually:
+
+- **Inputs must stay ≥16px.** Below that, iOS Safari zooms the page in on focus and doesn't zoom back out.
+- **Safe-area insets are applied per-region** (`.app-header`, `.app-main`, `#auth-screen`, the mobile
+  modal), never on `body` — padding there stacks on top of the `100dvh` screens and forces the page
+  to scroll by the inset amount. They only resolve to non-zero because of `viewport-fit=cover` in
+  the viewport meta.
+- **`dvh` with a `vh` line above it** for viewport heights, so mobile browser chrome doesn't clip.
+- **Hover effects live under `@media (hover: hover) and (pointer: fine)`** — on touch they latch
+  after a tap and leave cards looking stuck.
+- On phones the modals become bottom sheets (`align-items: flex-end`, top-rounded, full width) and
+  `.modal-actions` is `column-reverse` so the primary button sits on top, under the thumb.
+- **The header menu is one DOM node in two presentations, not two copies.** `#header-menu` is a
+  plain inline flex row above 600px (where `.menu-btn` is `display: none`); below it, the same
+  element becomes an absolutely-positioned dropdown shown by the `.open` class. Don't duplicate the
+  email/sign-out markup for mobile — the ids are queried once in `app.js`, and a second copy would
+  give you duplicate ids and a dead `#sign-out-btn` listener.
+
+To check a layout change, `tools/` has no harness — render it with headless Chrome over CDP
+(`--window-size` is ignored; use `Emulation.setDeviceMetricsOverride`) and assert
+`document.documentElement.scrollWidth <= clientWidth` at 320/375/744/1024/1440.
+
 ### PWA layer
 
 `manifest.webmanifest` + `sw.js` + `icons/` make the site installable. Two rules matter:

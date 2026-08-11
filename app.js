@@ -29,6 +29,9 @@
   const userEmailEl = document.getElementById('user-email');
   const signOutBtn = document.getElementById('sign-out-btn');
 
+  const menuBtn = document.getElementById('menu-btn');
+  const headerMenu = document.getElementById('header-menu');
+
   const memoriesList = document.getElementById('memories-list');
   const emptyState = document.getElementById('empty-state');
   const addMemoryBtn = document.getElementById('add-memory-btn');
@@ -61,8 +64,39 @@
   });
 
   signOutBtn.addEventListener('click', async () => {
+    closeMenu();
     await sb.auth.signOut();
   });
+
+  // --- Header menu (phones only; the panel is a plain inline row above 600px,
+  // where .menu-btn is display:none and .header-right is always visible) ---
+  function closeMenu() {
+    headerMenu.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // don't immediately hit the document handler below
+    const open = headerMenu.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!headerMenu.classList.contains('open')) return;
+    if (!headerMenu.contains(e.target)) closeMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (headerMenu.classList.contains('open')) {
+      closeMenu();
+      menuBtn.focus();
+    }
+  });
+
+  // Rotating to landscape (or resizing past the breakpoint) turns the panel
+  // back into an inline row; drop the class so it isn't left "open".
+  window.matchMedia('(max-width: 600px)').addEventListener('change', closeMenu);
 
   sb.auth.onAuthStateChange((_event, session) => {
     if (session?.user?.email) {
@@ -82,6 +116,7 @@
     // hour, so leaving the cards up would show them to whoever signs in next
     // on a shared device.
     unsubscribeRealtime();
+    closeMenu();
     memoriesCache = [];
     currentMemoryId = null;
     memoriesList.replaceChildren();
@@ -242,7 +277,7 @@
       ${imgUrl ? `<img src="${escapeAttr(imgUrl)}" alt="${escapeAttr(memory.title)}">` : ''}
       <p>${escapeHtml(memory.description || '')}</p>
       ${memory.author_email === currentUserEmail
-        ? '<button class="delete-memory-btn" id="delete-memory-btn">Delete this memory</button>'
+        ? '<button type="button" class="delete-memory-btn" id="delete-memory-btn">Delete this memory</button>'
         : ''}
     `;
 
