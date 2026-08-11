@@ -68,8 +68,21 @@ h1, h2, h3 {
   font-size: 14px;
 }
 
-#auth-form button[type="submit"] {
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
   margin-top: 16px;
+  background: #fff;
+  color: #3c4043;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.google-btn:hover {
+  background: #f7f7f7;
 }
 
 /* Form basics */
